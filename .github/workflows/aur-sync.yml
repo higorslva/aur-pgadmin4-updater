@@ -47,9 +47,11 @@ jobs:
             # Gerar .SRCINFO usando Docker (Arch Linux)
             docker run --rm -v $(pwd):/pkg archlinux:latest bash -c "
               pacman -Sy --noconfirm binutils sudo &&
+              useradd -m builder &&
+              echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers &&
+              chmod -R 777 /pkg &&
               cd /pkg/$DIR &&
-              chmod -R 777 . &&
-              sudo -u base makepkg --printsrcinfo > .SRCINFO
+              sudo -u builder makepkg --printsrcinfo > .SRCINFO
             "
 
             # Push para o AUR
