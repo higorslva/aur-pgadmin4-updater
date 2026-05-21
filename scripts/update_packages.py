@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from packaging.version import parse as parse_version
 
-PACKAGES_URL = "https://ftp.postgresql.org/pub/pgadmin/pgadmin4/apt/plucky/dists/pgadmin4/main/binary-amd64/Packages"
+PACKAGES_URL = "https://ftp.postgresql.org/pub/pgadmin/pgadmin4/apt/noble/dists/pgadmin4/main/binary-amd64/Packages"
 PROJECT_ROOT = Path(__file__).parent.parent
 
 PACKAGES_TO_UPDATE = {
