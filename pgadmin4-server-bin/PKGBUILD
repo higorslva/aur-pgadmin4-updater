@@ -22,18 +22,18 @@ package() {
   tar -x --zstd -f data.tar.zst -C "${pkgdir}"
   sed -i "s|ALLOW_SAVE_TUNNEL_PASSWORD = False|ALLOW_SAVE_TUNNEL_PASSWORD = True|" "${pkgdir}/usr/pgadmin4/web/config.py"
 
-  msg2 "A criar ambiente virtual isolado para Python 3.14..."
+  msg2 "Creating isolated Python 3.14 virtual environment..."
   rm -rf "${pkgdir}/usr/pgadmin4/venv"
   python -m venv "${pkgdir}/usr/pgadmin4/venv"
 
-  msg2 "A instalar dependências do requirements.txt..."
+  msg2 "Installing dependencies from requirements.txt..."
   
   "${pkgdir}/usr/pgadmin4/venv/bin/python" -m pip install --upgrade pip setuptools wheel
 
   "${pkgdir}/usr/pgadmin4/venv/bin/python" -m pip install --no-cache-dir \
     -r "${srcdir}/requirements.txt"
 
-  msg2 "A ajustar executáveis e caminhos do venv..."
+  msg2 "Adjusting venv executables and paths..."
   ln -sf python "${pkgdir}/usr/pgadmin4/venv/bin/python3"
   find "${pkgdir}/usr/pgadmin4/venv/bin" -type f -executable -exec sed -i "s|${pkgdir}||g" {} +
 

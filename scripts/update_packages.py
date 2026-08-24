@@ -13,7 +13,7 @@ PACKAGES_TO_UPDATE = {
 }
 
 def get_latest_versions_map():
-    print(f"Baixando {PACKAGES_URL} ...")
+    print(f"Downloading {PACKAGES_URL} ...")
     resp = requests.get(PACKAGES_URL)
     resp.raise_for_status()
     
@@ -31,7 +31,7 @@ def get_latest_versions_map():
             sha = sha_match.group(1)
             
             if name in PACKAGES_TO_UPDATE:
-                # Se houver múltiplas versões no arquivo, mantém a maior
+                # If multiple versions exist in the file, keep the highest one
                 if name not in latest_data or parse_version(version) > parse_version(latest_data[name][0]):
                     latest_data[name] = (version, sha)
     
@@ -40,25 +40,25 @@ def get_latest_versions_map():
 def update_pkgbuild(package_dir, new_ver, new_sha):
     pkgbuild_path = PROJECT_ROOT / package_dir / "PKGBUILD"
     if not pkgbuild_path.exists():
-        print(f"Aviso: {pkgbuild_path} não encontrado.")
+        print(f"Warning: {pkgbuild_path} not found.")
         return False
 
     content = pkgbuild_path.read_text()
     
-    # Comparação
+    # Comparison
     current_ver = re.search(r"^pkgver=([^\n]+)", content, re.M).group(1)
     current_sha = re.search(r"^sha256sums=\('([a-f0-9]{64})'", content, re.M).group(1)
 
     if current_ver == new_ver and current_sha == new_sha:
-        print(f"[{package_dir}] Já está na versão mais recente ({new_ver}).")
+        print(f"[{package_dir}] Already up to date ({new_ver}).")
         return False
 
-    # Atualização
+    # Update
     content = re.sub(r"^pkgver=.*$", f"pkgver={new_ver}", content, flags=re.M)
     content = re.sub(r"(^sha256sums=\(')[a-f0-9]{64}(')", f"\\g<1>{new_sha}\\g<2>", content, flags=re.M)
     
     pkgbuild_path.write_text(content)
-    print(f"[{package_dir}] Atualizado para {new_ver}")
+    print(f"[{package_dir}] Updated to {new_ver}")
     return True
 
 if __name__ == "__main__":

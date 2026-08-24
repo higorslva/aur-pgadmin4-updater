@@ -1,7 +1,7 @@
 name: Sync AUR Packages
 
 on:
-  # schedule desativado temporariamente (AUR fora do ar)
+  # schedule temporarily disabled (AUR downtime)
   # schedule:
   #   - cron: '0 0 * * *'
   workflow_dispatch:
@@ -31,7 +31,7 @@ jobs:
         env:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
         run: |
-          # Configuração do agente SSH
+          # SSH agent setup
           mkdir -p ~/.ssh
           echo "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
@@ -44,7 +44,7 @@ jobs:
 
           IFS=',' read -ra DIRS <<< "${{ steps.update_script.outputs.updated_dirs }}"
           for DIR in "${DIRS[@]}"; do
-            echo "Processando $DIR..."
+            echo "Processing $DIR..."
             
             git clone "ssh://aur@aur.archlinux.org/$DIR.git" "$WORKDIR/$DIR"
             
@@ -65,9 +65,9 @@ jobs:
               git commit -m "Update to $(grep -oP '^pkgver=\K.*' PKGBUILD)"
               git push origin master
             else
-              echo "Nenhuma alteração real detectada no clone do AUR."
+              echo "No real changes detected in the AUR clone."
             fi
             
-            # Volta para o diretório original do workflow
+            # Return to the original workflow directory
             cd -
           done
