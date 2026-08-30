@@ -1,4 +1,5 @@
 import re
+import hashlib
 import requests
 import os
 from pathlib import Path
@@ -49,6 +50,53 @@ SOURCE_URL_PATTERN = re.compile(
     r"pgadmin4-(?:server|desktop)_[^\s\"')]*\.deb"
 )
 
+def _sha256sums_block(content):
+    m = re.search(r"sha256sums=\((.*?)\)", content, re.DOTALL)
+    return m.group(1) if m else None
+
+def _read_first_sha(content):
+    block = _sha256sums_block(content)
+    if not block:
+        return None
+    m = re.search(r"[a-f0-9]{64}", block)
+    return m.group(0) if m else None
+
+def _replace_first_sha(content, new_sha):
+    m = re.search(r"(sha256sums=\([^)]*?)[a-f0-9]{64}", content, re.DOTALL)
+    if not m:
+        return content
+    return content[: m.end(1)] + new_sha + content[m.end(1) + 64:]
+
+def _replace_requirements_sha(content, new_sha):
+    # Replace the requirements hash (2nd entry) inside the sha256sums block,
+    # or the 'SKIP' placeholder when only the .deb hash is present.
+    m = re.search(r"sha256sums=\((.*?)\)", content, re.DOTALL)
+    if not m:
+        return content
+    block_start = m.start(1)
+    block = m.group(1)
+    hashes = list(re.finditer(r"[a-f0-9]{64}", block))
+    if len(hashes) >= 2:
+        start = block_start + hashes[1].start()
+        return content[:start] + new_sha + content[start + 64:]
+    skip = re.search(r"'SKIP'", block)
+    if skip:
+        start = block_start + skip.start()
+        end = block_start + skip.end()
+        return content[:start] + f"'{new_sha}'" + content[end:]
+    return content
+
+def _has_requirements(content):
+    return bool(re.search(r"requirements.{0,20}\.txt::https", content))
+
+def fetch_requirements_sha(pkgver):
+    tag = "REL-" + pkgver.replace(".", "_")
+    url = f"https://raw.githubusercontent.com/pgadmin-org/pgadmin4/refs/tags/{tag}/requirements.txt"
+    resp = requests.get(url, timeout=30)
+    if resp.status_code != 200:
+        return None
+    return hashlib.sha256(resp.text.encode("utf-8")).hexdigest()
+
 def update_pkgbuild(package_dir, new_ver, new_sha, new_filename):
     pkgbuild_path = PROJECT_ROOT / package_dir / "PKGBUILD"
     if not pkgbuild_path.exists():
@@ -61,7 +109,7 @@ def update_pkgbuild(package_dir, new_ver, new_sha, new_filename):
 
     # Comparison
     current_ver = re.search(r"^pkgver=([^\n]+)", content, re.M).group(1)
-    current_sha = re.search(r"^sha256sums=\('([a-f0-9]{64})'", content, re.M).group(1)
+    current_sha = _read_first_sha(content)
     current_url = None
     for line in content.splitlines():
         if not line.lstrip().startswith("#") and "binary-amd64/pgadmin4-" in line:
@@ -82,7 +130,7 @@ def update_pkgbuild(package_dir, new_ver, new_sha, new_filename):
         changes.append("pkgver")
 
     if current_sha != new_sha:
-        content = re.sub(r"(^sha256sums=\(')[a-f0-9]{64}(')", f"\\g<1>{new_sha}\\g<2>", content, flags=re.M)
+        content = _replace_first_sha(content, new_sha)
         changes.append("sha256sums")
 
     if current_url is not None and resolved_url != new_url:
@@ -99,6 +147,16 @@ def update_pkgbuild(package_dir, new_ver, new_sha, new_filename):
         if pkgrel_match:
             content = re.sub(r"^pkgrel=(\d+)", f"pkgrel={int(pkgrel_match.group(1)) + 1}", content, flags=re.M)
             changes.append("pkgrel")
+
+    if _has_requirements(content):
+        requirements_sha = fetch_requirements_sha(pkgver)
+        if requirements_sha is None:
+            print(f"Warning: could not fetch requirements.txt for REL-{pkgver.replace('.', '_')}; keeping existing hash.")
+        else:
+            new_content = _replace_requirements_sha(content, requirements_sha)
+            if new_content != content:
+                content = new_content
+                changes.append("requirements")
 
     pkgbuild_path.write_text(content)
     print(f"[{package_dir}] Updated to {pkgver} ({', '.join(changes)}).")
