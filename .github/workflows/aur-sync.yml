@@ -1,9 +1,8 @@
 name: Sync AUR Packages
 
 on:
-  # schedule temporarily disabled (AUR downtime)
-  # schedule:
-  #   - cron: '0 0 * * *'
+  schedule:
+     - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
