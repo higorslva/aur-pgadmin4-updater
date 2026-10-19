@@ -6,8 +6,8 @@ Automated maintenance and synchronization for **pgAdmin4** binary packages in th
 
 | Package | Description | AUR Link |
 | :--- | :--- | :--- |
-| **pgadmin4-server-bin** | The core server package for pgAdmin4. | [aur.archlinux.org/packages/pgadmin4-server-bin](https://aur.archlinux.org/packages/pgadmin4-server-bin) |
-| **pgadmin4-desktop-bin** | The desktop user interface for pgAdmin4. | [aur.archlinux.org/packages/pgadmin4-desktop-bin](https://aur.archlinux.org/packages/pgadmin4-desktop-bin) |
+| **pgadmin4-server** | The core server package for pgAdmin4. | [aur.archlinux.org/packages/pgadmin4-server](https://aur.archlinux.org/packages/pgadmin4-server) |
+| **pgadmin4-desktop** | The desktop user interface for pgAdmin4. | [aur.archlinux.org/packages/pgadmin4-desktop](https://aur.archlinux.org/packages/pgadmin4-desktop) |
 
 ---
 
@@ -20,6 +20,8 @@ This repository uses **GitHub Actions** and a custom **Python automation script*
 3.  **Auditability:** If a new version is found, the script updates the `PKGBUILD` and generates a new `.SRCINFO` using an **Arch Linux Docker container** to ensure metadata integrity.
 4.  **Automated Deploy:** Changes are committed and pushed directly to the AUR via SSH using a dedicated automation key.
 
+> **Manual runs:** the workflow can be triggered manually via `workflow_dispatch`. Enable the **force** input to push all packages to the AUR even when no upstream change was detected (needed after hand-editing a `PKGBUILD`, since the script otherwise reports "Already up to date" and skips the deploy).
+
 ---
 
 ## 📁 Repository Structure
@@ -28,9 +30,9 @@ This repository uses **GitHub Actions** and a custom **Python automation script*
 pgadmin4-aur/
 ├── .github/workflows/
 │   └── aur-sync.yml          # GitHub Actions CI/CD logic
-├── pgadmin4-server-bin/
+├── pgadmin4-server/
 │   └── PKGBUILD              # Server package build script
-├── pgadmin4-desktop-bin/
+├── pgadmin4-desktop/
 │   └── PKGBUILD              # Desktop package build script
 └── scripts/
     └── update_packages.py    # Python logic for version tracking
