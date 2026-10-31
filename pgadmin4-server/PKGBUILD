@@ -1,8 +1,8 @@
 # Original Maintainer: bko <aur at bil dot co dot ua>
 # Maintainer: higorslva <higor.slva at outlook dot com>
 
-pkgname=pgadmin4-server-bin
-pkgver=9.17
+pkgname=pgadmin4-server
+pkgver=9.18
 pkgrel=1
 pkgdesc='The core server package for pgAdmin (binary from Ubuntu). pgAdmin is the most popular administration platform for PostgreSQL.'
 arch=('x86_64')
@@ -10,8 +10,6 @@ url='https://www.pgadmin.org/'
 license=('PostgreSQL')
 makedepends=('python-pip' 'libarchive' 'tar' 'zstd')
 depends=('python' 'libedit' 'krb5' 'sqlite' 'postgresql-libs')
-provides=('pgadmin4-server')
-conflicts=('pgadmin4-server')
 
 # The requirements URL points to the released tag, with '.' replaced by '_' in the version
 source=(
@@ -21,8 +19,8 @@ source=(
 
 # Real SHA256 of the pinned requirements file (maintained by the update script)
 sha256sums=(
-  'cec06cafd20b5d13f6dec3e767e46e4359f3620cc6ddb6449800c43a65971fc4'
-  'f8f1ad6644bb32911578e8223cc76c7c6db703484d865b23b515e690f1ab05f0'
+  '242ff77edfa1a380fdbd26bab10495608ecfc9d9332b503ec3b37b909160c12c'
+  'a4927028b94ac02664c1184c70f9c13e3f155d7a7c164f4ff9e7c117635abcbf'
 )
 
 prepare() {

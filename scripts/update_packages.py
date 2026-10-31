@@ -10,8 +10,8 @@ APT_BASE_URL = PACKAGES_URL.split("dists/")[0]
 PROJECT_ROOT = Path(__file__).parent.parent
 
 PACKAGES_TO_UPDATE = {
-    "pgadmin4-server": "pgadmin4-server-bin",
-    "pgadmin4-desktop": "pgadmin4-desktop-bin"
+    "pgadmin4-server": "pgadmin4-server",
+    "pgadmin4-desktop": "pgadmin4-desktop"
 }
 
 # Packages whose source pulls requirements.txt from a GitHub release tag.
@@ -159,10 +159,13 @@ def update_pkgbuild(package_dir, new_ver, new_sha, new_filename):
         changes.append("sha256sums")
 
     if current_url is not None and resolved_url != new_url:
+        # Rewrite keeping the ${pkgver} template instead of hardcoding the new
+        # version, so manual pkgver bumps keep working with makepkg.
+        templated_url = new_url.replace(f"_{pkgver}-", "_${pkgver}-")
         new_lines = []
         for line in content.splitlines(keepends=True):
             if not line.lstrip().startswith("#") and "binary-amd64/pgadmin4-" in line:
-                line = SOURCE_URL_PATTERN.sub(new_url, line)
+                line = SOURCE_URL_PATTERN.sub(templated_url, line)
             new_lines.append(line)
         content = "".join(new_lines)
         changes.append("source")
@@ -213,6 +216,14 @@ if __name__ == "__main__":
         ver, sha, filename = chosen
         if update_pkgbuild(local_dir, ver, sha, filename):
             updates_made.append(local_dir)
+
+    # FORCE_UPDATE=1 (workflow_dispatch "force") pushes every package to the AUR
+    # even when nothing changed locally (e.g. after hand-edited PKGBUILDs or the
+    # initial bootstrap). The workflow skips the commit when the AUR clone has no
+    # real diff, so forcing stays idempotent.
+    if os.environ.get("FORCE_UPDATE") == "1":
+        updates_made = list(dict.fromkeys(updates_made + list(PACKAGES_TO_UPDATE.values())))
+        print("FORCE_UPDATE=1: forcing AUR deploy for: " + ",".join(updates_made))
     
     if updates_made:
         updated_str = ','.join(updates_made)
