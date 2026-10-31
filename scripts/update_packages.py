@@ -14,13 +14,19 @@ PACKAGES_TO_UPDATE = {
     "pgadmin4-desktop": "pgadmin4-desktop-bin"
 }
 
-def get_latest_versions_map():
+# Packages whose source pulls requirements.txt from a GitHub release tag.
+# They only update to a version whose REL-x_y tag already exists upstream.
+TAG_GATED = {"pgadmin4-server"}
+
+_TAG_CACHE = {}
+
+def get_versions_map():
     print(f"Downloading {PACKAGES_URL} ...")
     resp = requests.get(PACKAGES_URL)
     resp.raise_for_status()
     
     blocks = re.split(r"\n(?=Package:)", resp.text)
-    latest_data = {}
+    versions_data = {}
 
     for block in blocks:
         pkg_name_match = re.search(r"Package: ([\w-]+)", block)
@@ -30,16 +36,35 @@ def get_latest_versions_map():
         
         if pkg_name_match and ver_match and sha_match and fn_match:
             name = pkg_name_match.group(1)
-            version = ver_match.group(1)
-            sha = sha_match.group(1)
-            filename = fn_match.group(1)
-            
             if name in PACKAGES_TO_UPDATE:
-                # If multiple versions exist in the file, keep the highest one
-                if name not in latest_data or parse_version(version) > parse_version(latest_data[name][0]):
-                    latest_data[name] = (version, sha, filename)
-    
-    return latest_data
+                # Keep every version so a tag-gated package can fall back
+                # to the newest release that already has a GitHub tag
+                versions_data.setdefault(name, {})[ver_match.group(1)] = (sha_match.group(1), fn_match.group(1))
+
+    versions_map = {}
+    for name, entries in versions_data.items():
+        ordered = sorted(entries.items(), key=lambda kv: parse_version(kv[0]), reverse=True)
+        versions_map[name] = [(ver, sha, filename) for ver, (sha, filename) in ordered]
+
+    return versions_map
+
+def tag_exists(pkgver, token=None):
+    if pkgver not in _TAG_CACHE:
+        tag = "REL-" + pkgver.replace(".", "_")
+        headers = {"Accept": "application/vnd.github+json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        resp = requests.get(
+            f"https://api.github.com/repos/pgadmin-org/pgadmin4/git/ref/tags/{tag}",
+            headers=headers,
+            timeout=30,
+        )
+        if resp.status_code == 404:
+            _TAG_CACHE[pkgver] = False
+        else:
+            resp.raise_for_status()
+            _TAG_CACHE[pkgver] = True
+    return _TAG_CACHE[pkgver]
 
 def sanitize_pkgver(version):
     # Strip the Debian revision, e.g. 9.17-1 -> 9.17
@@ -163,14 +188,31 @@ def update_pkgbuild(package_dir, new_ver, new_sha, new_filename):
     return True
 
 if __name__ == "__main__":
-    latest_info = get_latest_versions_map()
+    versions_map = get_versions_map()
+    token = os.environ.get("GITHUB_TOKEN")
     updates_made = []
 
     for upstream_name, local_dir in PACKAGES_TO_UPDATE.items():
-        if upstream_name in latest_info:
-            ver, sha, filename = latest_info[upstream_name]
-            if update_pkgbuild(local_dir, ver, sha, filename):
-                updates_made.append(local_dir)
+        candidates = versions_map.get(upstream_name, [])
+        if not candidates:
+            print(f"[{local_dir}] No upstream versions found; skipping.")
+            continue
+
+        chosen = candidates[0]
+        if upstream_name in TAG_GATED:
+            # Fall back to the newest release that already has its GitHub tag
+            chosen = next(
+                ((ver, sha, filename) for ver, sha, filename in candidates
+                 if tag_exists(sanitize_pkgver(ver), token)),
+                None,
+            )
+            if chosen is None:
+                print(f"[{local_dir}] No upstream REL tag available yet; skipping.")
+                continue
+
+        ver, sha, filename = chosen
+        if update_pkgbuild(local_dir, ver, sha, filename):
+            updates_made.append(local_dir)
     
     if updates_made:
         updated_str = ','.join(updates_made)
